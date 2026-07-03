@@ -18,11 +18,20 @@ WORKDIR="${2:-$HOME/kp-canoe}"
 PRODUCT="${PRODUCT:-blanc_g}"      # -> mmi_product_name=blanc, mmi_product_type=g
 KP="$WORKDIR/kernel_platform"
 
-# 1) generate soc-repo/moto_product.bzl  (run from WORKDIR; wrapper paths are relative to it)
+# 1a) generate soc-repo/moto_product.bzl  (run from WORKDIR; wrapper paths are relative to it)
 cd "$WORKDIR"
 echo ">> generating moto_product.bzl via build_kernel_product.sh $PRODUCT canoe $VARIANT"
 bash ./kernel_platform/build/kernel/build_kernel_product.sh "$PRODUCT" canoe "$VARIANT"
 echo ">> moto_product.bzl:"; cat "$KP/soc-repo/moto_product.bzl" 2>/dev/null | sed 's/^/     /'
+
+# 1b) generate configs/ext_config/moto_{perf,consolidate}_config.bzl from the .config fragments.
+# canoe.bzl loads BOTH, so both are required even for a perf build. Args: <arch> <variant> <product>.
+echo ">> generating ext_config .bzl via build_defconfig.sh canoe $VARIANT $PRODUCT"
+bash ./kernel_platform/build/kernel/build_defconfig.sh canoe "$VARIANT" "$PRODUCT"
+# build_defconfig.sh ends with `cd kernel_platform && ln -fs ../motorola`; since our motorola/ is a
+# real synced dir, that creates a self-referential motorola/motorola symlink — remove it so Bazel's
+# package globbing doesn't hit an infinite symlink loop.
+rm -f "$KP/motorola/motorola"
 
 # build_with_bazel.py symlinks build/msm_kernel_extensions.bzl and loads it as //build:...,
 # so build/ must be a Bazel package. Nothing in the manifest owns the bare build/ dir, so ensure
