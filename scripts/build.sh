@@ -45,16 +45,19 @@ rm -f "$KP/motorola/motorola"
 BZI="$KP/.bazelignore"; touch "$BZI"
 grep -qxF "soc-repo/bazel-cache" "$BZI" || echo "soc-repo/bazel-cache" >> "$BZI"
 
-# dtc repo: the kleaf_local_repository rule symlinks every child of external/qcom-dtc into the repo
-# AND symlinks BUILD.bazel from soc-repo/BUILD.dtc (build_file), so the two BUILD.bazel writes collide.
-# Moto's soc-repo/BUILD.dtc is an OLDER dtc build with NO version_gen.h generation (util.c then fails
-# 'version_gen.h' not found). qcom-dtc ships its OWN complete BUILD.bazel (version_gen_header genrule).
-# Fix: use qcom's BUILD.bazel as the canonical build_file (copy into BUILD.dtc), and remove the source
-# copy so readdir doesn't collide with the build_file symlink.
-if [ -f "$KP/external/qcom-dtc/BUILD.bazel" ]; then
-  cp -f "$KP/external/qcom-dtc/BUILD.bazel" "$KP/soc-repo/BUILD.dtc"
-  rm -f "$KP/external/qcom-dtc/BUILD.bazel"
+# dtc repo: soc-repo/BUILD.dtc is the repo rule's build_file (canonical). Its dtc target globs *.h and
+# includes "version_gen.h"; fdtget/fdtput/etc. list "version_non_gen.h" as srcs. Moto's build GENERATES
+# both headers from version_gen.h.in, but the published qcom-dtc source omits them -> "file not found".
+# Generate both here (as Moto's genrule would). Also drop qcom-dtc's own BUILD.bazel so the repo rule's
+# readdir doesn't collide with the build_file (BUILD.dtc) symlink ("File exists").
+QD="$KP/external/qcom-dtc"
+if [ -f "$QD/version_gen.h.in" ]; then
+  ver="$(sed -f "$QD/METADATA_version.sed" -n "$QD/METADATA" 2>/dev/null | head -1)"
+  [ -n "$ver" ] || ver="1.4.2"
+  sed "s/@VCS_TAG@/${ver}-Android-build/" "$QD/version_gen.h.in" > "$QD/version_gen.h"
+  cp -f "$QD/version_gen.h" "$QD/version_non_gen.h"
 fi
+rm -f "$QD/BUILD.bazel"
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
