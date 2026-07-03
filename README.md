@@ -3,6 +3,10 @@
 Clean, reproducible build harness for the **Motorola Razr Fold 2026** kernel — built **from
 Motorola's published OSS**, assembled correctly via `repo` manifest (no hand-cloning).
 
+> ### 👉 Continuing this work? Read **[CONTINUE-HERE.md](CONTINUE-HERE.md)** first.
+> It's a literal step-by-step runbook (build → flash → verify) that needs no prior context and no
+> guesswork — including the exact mistakes NOT to repeat and how to recover a bootloop in ~30 s.
+
 | | |
 |---|---|
 | Device | Motorola Razr Fold 2026, codename **blanc** |
