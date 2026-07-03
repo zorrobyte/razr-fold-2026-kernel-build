@@ -24,6 +24,11 @@ echo ">> generating moto_product.bzl via build_kernel_product.sh $PRODUCT canoe 
 bash ./kernel_platform/build/kernel/build_kernel_product.sh "$PRODUCT" canoe "$VARIANT"
 echo ">> moto_product.bzl:"; cat "$KP/soc-repo/moto_product.bzl" 2>/dev/null | sed 's/^/     /'
 
+# build_with_bazel.py symlinks build/msm_kernel_extensions.bzl and loads it as //build:...,
+# so build/ must be a Bazel package. Nothing in the manifest owns the bare build/ dir, so ensure
+# an (empty) BUILD file exists — the loader just needs the package to be present.
+[ -f "$KP/build/BUILD.bazel" ] || : > "$KP/build/BUILD.bazel"
+
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
 echo ">> building canoe $VARIANT"
