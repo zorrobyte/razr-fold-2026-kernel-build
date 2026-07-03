@@ -29,9 +29,11 @@ echo ">> Overlay: $HERE/manifests/moto-canoe.xml (MotorolaMobilityLLC @ android-
 mkdir -p "$WORKDIR/kernel_platform"
 cd "$WORKDIR/kernel_platform"
 
-# 1) init AOSP GKI base at the exact ACK tag (falls back to the branch if the tag isn't a manifest ref)
-repo init -u "$AOSP_MANIFEST" -b "$ACK_TAG" --depth=1 \
-  || repo init -u "$AOSP_MANIFEST" -b common-android16-6.12 --depth=1
+# 1) init AOSP GKI base. NOTE: android16-6.12-2025-09_r15 ($ACK_TAG) is a tag on kernel/common, NOT a
+# ref on the manifest repo, so we init the manifest BRANCH common-android16-6.12. This only supplies
+# prebuilts/clang + external/dtc + build deps (forward-compatible); the kernel 'common' itself is
+# OVERRIDDEN below by Moto's kernel-common @ the MMI-W3WB tag, so the exact GKI snapshot here is moot.
+repo init -u "$AOSP_MANIFEST" -b common-android16-6.12 --depth=1
 
 # 2) drop in the Moto overlay as a local manifest
 mkdir -p .repo/local_manifests
