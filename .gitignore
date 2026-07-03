@@ -1,0 +1,8 @@
+# this repo is a BUILD HARNESS, not the kernel source — never commit the synced tree or outputs
+kp-canoe/
+kernel_platform/
+out/
+*.img
+*.ko
+*.tar.gz
+.DS_Store
