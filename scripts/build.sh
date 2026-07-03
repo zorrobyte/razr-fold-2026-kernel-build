@@ -45,22 +45,15 @@ rm -f "$KP/motorola/motorola"
 BZI="$KP/.bazelignore"; touch "$BZI"
 grep -qxF "soc-repo/bazel-cache" "$BZI" || echo "soc-repo/bazel-cache" >> "$BZI"
 
-# dtc repo: soc-repo/BUILD.dtc is the repo rule's build_file (canonical). Its dtc target globs *.h and
-# includes "version_gen.h"; fdtget/fdtput/etc. list "version_non_gen.h" as srcs. Moto's build GENERATES
-# both headers from version_gen.h.in, but the published qcom-dtc source omits them -> "file not found".
-# Generate both here (as Moto's genrule would). Also drop qcom-dtc's own BUILD.bazel so the repo rule's
-# readdir doesn't collide with the build_file (BUILD.dtc) symlink ("File exists").
-QD="$KP/external/qcom-dtc"
-if [ -f "$QD/version_gen.h.in" ]; then
-  ver="$(sed -f "$QD/METADATA_version.sed" -n "$QD/METADATA" 2>/dev/null | head -1)"
-  [ -n "$ver" ] || ver="1.4.2"
-  sed "s/@VCS_TAG@/${ver}-Android-build/" "$QD/version_gen.h.in" > "$QD/version_gen.h"
-fi
-rm -f "$QD/BUILD.bazel"
-# util.c always #includes "version_gen.h", but BUILD.dtc's fdtget/fdtput/etc. targets list
-# "version_non_gen.h" as their src (so it's not staged in their sandbox -> header not found). Point
-# those srcs at the generated version_gen.h so every util.c-compiling target stages it. Idempotent.
-sed -i 's/version_non_gen\.h/version_gen.h/g' "$KP/soc-repo/BUILD.dtc"
+# dtc repo: the kleaf_local_repository rule uses soc-repo/BUILD.dtc as the dtc repo's build_file, but
+# Moto's soc-repo ships a STALE BUILD.dtc that mismatches the published qcom-dtc source (it references
+# version_non_gen.h and fdtoverlaymerge.c, neither of which exist). kernel-external-dtc ships its OWN
+# correct BUILD.bazel (version_gen_header genrule; fdtget/fdtput/fdtdump/fdtoverlay — matching the
+# actual sources). Use our vendored copy of that as the build_file, and remove the source's BUILD.bazel
+# so the repo rule's readdir doesn't collide with the build_file symlink ("File exists").
+HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cp -f "$HARNESS_DIR/overlays/qcom-dtc-BUILD.bazel" "$KP/soc-repo/BUILD.dtc"
+rm -f "$KP/external/qcom-dtc/BUILD.bazel"
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
