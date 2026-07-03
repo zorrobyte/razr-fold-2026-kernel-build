@@ -38,6 +38,13 @@ rm -f "$KP/motorola/motorola"
 # an (empty) BUILD file exists — the loader just needs the package to be present.
 [ -f "$KP/build/BUILD.bazel" ] || : > "$KP/build/BUILD.bazel"
 
+# build_with_bazel.py points bazel --output_user_root at soc-repo/bazel-cache (in-tree). The target
+# query would then recurse into bazel's own execroot and fail loading external repos' test .bzl files
+# (+ "infinite symlink expansion"). Exclude the cache from package scanning via .bazelignore (at the
+# workspace root = kernel_platform). Idempotent.
+BZI="$KP/.bazelignore"; touch "$BZI"
+grep -qxF "soc-repo/bazel-cache" "$BZI" || echo "soc-repo/bazel-cache" >> "$BZI"
+
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
 echo ">> building canoe $VARIANT"
