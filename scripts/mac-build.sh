@@ -27,7 +27,7 @@ colima status "$PROFILE" >/dev/null 2>&1 || {
 docker context use "colima-$PROFILE" >/dev/null
 
 echo ">> building canoe $VARIANT in an amd64 (Rosetta) container; tree persists in volume 'kp-canoe'"
-docker run --rm -it --platform=linux/amd64 \
+docker run --rm --platform=linux/amd64 \
   -v kp-canoe:/root/kp-canoe \
   -v "$HARNESS":/harness:ro \
   -w /root \
