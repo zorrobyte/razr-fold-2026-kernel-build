@@ -1,5 +1,14 @@
 # CONTINUE HERE — agent runbook (read this first, follow it literally)
 
+> ## ✅ STATUS (2026-07-03): THE BUILD WORKS.
+> `scripts/mac-build.sh perf` produces a complete from-source canoe PERF dist (Image +
+> **matched vendor_dlkm.img** + dtb/dtbo/boot/vendor_boot) on an Apple Silicon Mac via Rosetta.
+> Artifacts copied to **`~/Desktop/razr-lindroid/out-canoe-perf-macbuilt/`**. Vermagic is
+> `6.12.38-android16-5-maybe-dirty-4k` (fine for Strategy-B flash — boot + vendor_dlkm share it).
+> **Remaining work = FLASH IT (Step 3) when the Razr is on USB, then verify boot.** First kernel
+> compile is ~5.5 h under Rosetta then cached (~20 min after); an occasional transient clang
+> segfault (e.g. `af_vsock_tap.o`) just needs a re-run.
+
 You are continuing a Motorola **Razr Fold 2026** kernel build. This file is a step-by-step runbook.
 **Do not re-investigate or re-derive anything below — it is already proven.** Just execute the steps,
 check the expected output, and follow the branch that matches what you see. When in doubt, prefer the
