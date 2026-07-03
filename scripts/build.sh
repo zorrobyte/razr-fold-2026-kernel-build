@@ -66,12 +66,13 @@ rm -f "$KP/external/qcom-dtc/BUILD.bazel"
 git -C "$KP/build/kernel" checkout -- kleaf/bazelrc/local.bazelrc 2>/dev/null || true
 grep -v "qcom_build_extensions" "$KP/soc-repo/device.bazelrc" >> "$KP/build/kernel/kleaf/bazelrc/local.bazelrc"
 
-# The dts tree symlinks carrier-channel-ids.dtsi OUT to motorola/kernel/modules (outside the
-# kernel_dtstree), so the DTB build sandbox only stages a dangling link -> "file not found".
-# Dereference it (replace the symlink with the real file) so it stages. Sync restores the symlink,
-# so this re-applies each run.
+# carrier-channel-ids.dtsi in the dts tree is a symlink into motorola/kernel/modules, but its relative
+# path (../../../../../motorola) is BROKEN in this layout (resolves to soc-repo/arch/motorola, which
+# doesn't exist) — hence the DTB build's "file not found". Replace it with the real file from its
+# actual location so it stages in the dtstree sandbox. set-e-safe; sync restores the symlink each run.
 cds="$KP/soc-repo/arch/arm64/boot/dts/vendor/qcom/carrier-channel-ids.dtsi"
-if [ -L "$cds" ]; then tgt="$(readlink -f "$cds")"; [ -f "$tgt" ] && { rm -f "$cds"; cp -f "$tgt" "$cds"; }; fi
+cds_real="$KP/motorola/kernel/modules/drivers/channel_id/carrier-channel-ids.dtsi"
+if [ -L "$cds" ] && [ -f "$cds_real" ]; then rm -f "$cds"; cp -f "$cds_real" "$cds"; fi
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
