@@ -37,14 +37,25 @@ compiled stock `//common:kernel_aarch64` and only *looked* correct because it ha
   `soc-repo` (kernel-msm), `qcom/opensource/*`, `*-devicetree`, `motorola-kernel-modules`,
   techpacks — and overrides `common/` with Moto's `kernel-common` fork.
 
-## Usage (on a NATIVE x86-64 Linux host — WSL2 Ubuntu)
-> Apple Silicon can't run the AOSP x86-64 clang under emulation (it segfaults). Build on the PC.
+## Usage
+
+### Native x86-64 Linux (WSL2 Ubuntu, or any Linux box) — fastest
 ```bash
 # deps: git curl python3 python-is-python3 unzip zip rsync bc bison flex libssl-dev libelf-dev make gcc g++
 #       + `repo` (https://storage.googleapis.com/git-repo-downloads/repo)
 scripts/bootstrap.sh            # assemble the tree at ~/kp-canoe/kernel_platform  (~60GB sync)
 scripts/build.sh perf           # PRISTINE canoe PERF kernel  -> out/msm-kernel-canoe-perf/dist/
 ```
+
+### Apple Silicon Mac (via Colima + Rosetta 2) — verified working
+The AOSP kernel toolchain is x86-64-only (no arm64 host clang), but **Rosetta 2 translates it
+reliably** (confirmed: clang 19.x compiles+runs under Rosetta on M4 Max). The old "clang segfaults"
+was *qemu* full-system emulation, not Rosetta. Build inside an amd64 container so Bazel picks the
+linux-x86 clang, run by Rosetta:
+```bash
+scripts/mac-build.sh perf       # starts a Rosetta Colima VM if needed, builds in an amd64 container
+```
+Slower than native x86 (~1.5–3×) but very usable on an M-series with plenty of RAM/disk.
 The pristine PERF build **must boot before any modification.** See `docs/FLASH-AND-BOOTLOOP.md`
 for the flashing rules that actually matter (they are why prior builds looped) and the recovery
 path.
