@@ -24,7 +24,13 @@
        plus Moto's defconfig_fragment / search_and_cp_output tweaks the canoe target relies on).
        Overrides AOSP's build/kernel (name kernel/build). -->
   <remove-project name="kernel/build" />
-  <project remote="moto" name="kernel_platform-build-kernel" path="build/kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-build-kernel" path="build/kernel" revision="refs/tags/MMI-W3WB36.36-48-5">
+    <!-- these linkfiles were on AOSP's kernel/build; overriding the project dropped them.
+         They create the workspace-root bazel wrapper (tools/bazel) + bzlmod files. Required. -->
+    <linkfile src="kleaf/bazel.sh" dest="tools/bazel" />
+    <linkfile src="kleaf/bzlmod/bazel.MODULE.bazel" dest="MODULE.bazel" />
+    <linkfile src="kleaf/bzlmod/bazel.WORKSPACE.bzlmod" dest="WORKSPACE.bzlmod" />
+  </project>
 
   <!-- SoC kernel (build driver lives here: soc-repo/build_with_bazel.py) -->
   <project remote="moto" name="kernel-msm" path="soc-repo" revision="refs/tags/MMI-W3WB36.36-48-5" />
