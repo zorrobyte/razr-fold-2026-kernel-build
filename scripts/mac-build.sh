@@ -44,8 +44,18 @@ docker run --rm --platform=linux/amd64 \
     fi
     git config --global user.email build@local; git config --global user.name build
     git config --global color.ui false
-    # assemble (idempotent) + build
+    # assemble (idempotent)
     /harness/scripts/bootstrap.sh /root/kp-canoe
+    # --- ROSETTA WORKAROUND ---------------------------------------------------------------
+    # Rosetta 2 cannot run AOSP hermetic MUSL binaries (relinterp -> "AT_BASE not found in aux
+    # vector"). Force the GLIBC hermetic tools, which run fine under Rosetta (like the clang we
+    # tested). Applied AFTER sync (repo --force-sync restores pristine each run) and re-applied
+    # idempotently. Two forcing points: the bazel launcher, and one unconditional musl.bazelrc line.
+    KL=/root/kp-canoe/kernel_platform/build/kernel/kleaf
+    sed -i "s#linux_musl-x86/bin/py3-cmd#linux-x86/bin/py3-cmd#g" "$KL/bazel.sh"
+    : > "$KL/bazelrc/musl.bazelrc"   # drop the unconditional `common --config=musl_platform` (=> host stays glibc)
+    echo ">> rosetta: forced glibc hermetic tools (bazel.sh launcher + musl.bazelrc neutralized)"
+    # --------------------------------------------------------------------------------------
     /harness/scripts/build.sh '"$VARIANT"' /root/kp-canoe
   '
 echo
