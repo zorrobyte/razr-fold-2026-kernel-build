@@ -32,6 +32,19 @@
     <linkfile src="kleaf/bzlmod/bazel.WORKSPACE.bzlmod" dest="WORKSPACE.bzlmod" />
   </project>
 
+  <!-- build-infra + bzlmod deps Moto forked that the AOSP base does NOT provide at these paths.
+       android_build.bzl loads //build/bazel_common_rules/dist, and bzlmod resolves modules offline
+       from the vendored bazel-central-registry, so these are required (verified missing in-tree). -->
+  <project remote="moto" name="kernel_platform-build-bazel_common_rules" path="build/bazel_common_rules" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-platforms" path="external/bazelbuild/platforms" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-rules_cc" path="external/bazelbuild/rules_cc" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-rules_license" path="external/bazelbuild/rules_license" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-rules_pkg" path="external/bazelbuild/rules_pkg" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-rules_python" path="external/bazelbuild/rules_python" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-rules_shell" path="external/bazelbuild/rules_shell" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazelbuild-bazel-central-registry" path="external/bazelbuild/bazel-central-registry" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel_platform-external-bazel-contrib-bazel_features" path="external/bazel-contrib/bazel_features" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
   <!-- SoC kernel (build driver lives here: soc-repo/build_with_bazel.py) -->
   <project remote="moto" name="kernel-msm" path="soc-repo" revision="refs/tags/MMI-W3WB36.36-48-5" />
 
