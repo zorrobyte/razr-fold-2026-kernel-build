@@ -45,11 +45,16 @@ rm -f "$KP/motorola/motorola"
 BZI="$KP/.bazelignore"; touch "$BZI"
 grep -qxF "soc-repo/bazel-cache" "$BZI" || echo "soc-repo/bazel-cache" >> "$BZI"
 
-# The dtc kleaf_local_repository symlinks every child of external/qcom-dtc into the repo AND then
-# symlinks BUILD.bazel from soc-repo/BUILD.dtc (its canonical build_file). Moto's kernel-external-dtc
-# ships a stray root BUILD.bazel, so the two collide ("File exists"). BUILD.dtc is the intended one,
-# so drop the source's BUILD.bazel. Same for external/dtc if present.
-rm -f "$KP/external/qcom-dtc/BUILD.bazel" "$KP/external/qcom-dtc/BUILD"
+# dtc repo: the kleaf_local_repository rule symlinks every child of external/qcom-dtc into the repo
+# AND symlinks BUILD.bazel from soc-repo/BUILD.dtc (build_file), so the two BUILD.bazel writes collide.
+# Moto's soc-repo/BUILD.dtc is an OLDER dtc build with NO version_gen.h generation (util.c then fails
+# 'version_gen.h' not found). qcom-dtc ships its OWN complete BUILD.bazel (version_gen_header genrule).
+# Fix: use qcom's BUILD.bazel as the canonical build_file (copy into BUILD.dtc), and remove the source
+# copy so readdir doesn't collide with the build_file symlink.
+if [ -f "$KP/external/qcom-dtc/BUILD.bazel" ]; then
+  cp -f "$KP/external/qcom-dtc/BUILD.bazel" "$KP/soc-repo/BUILD.dtc"
+  rm -f "$KP/external/qcom-dtc/BUILD.bazel"
+fi
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
