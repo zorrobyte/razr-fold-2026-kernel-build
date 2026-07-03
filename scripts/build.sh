@@ -60,7 +60,9 @@ rm -f "$KP/external/qcom-dtc/BUILD.bazel"
 # kernel headers like drivers/base/regmap/internal.h; socrepo/qtisocrepo=true; check_visibility=false;
 # JVM heap) — but nothing in this build flow loads it. Append it to a bazelrc kleaf DOES load
 # (local.bazelrc, restored by --force-sync each run so this stays a single append).
-cat "$KP/soc-repo/device.bazelrc" >> "$KP/build/kernel/kleaf/bazelrc/local.bazelrc"
+# Drop the qtisocrepo lines: they reference //build/qcom_build_extensions, a package Moto never
+# published, and nothing in the build graph actually uses qtisocrepo — so it's safe to omit.
+grep -v "qcom_build_extensions" "$KP/soc-repo/device.bazelrc" >> "$KP/build/kernel/kleaf/bazelrc/local.bazelrc"
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
