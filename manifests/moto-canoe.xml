@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Motorola Razr Fold 2026 (blanc / SM8845 canoe) — Moto vendor overlay.
+  Base tree comes from the AOSP GKI manifest (android16-6.12-2025-09_r15); this local
+  manifest overlays Motorola's published source, pinned to the IMMUTABLE build tag
+  MMI-W3WB36.36-48-5 (the exact W3WB36.36-48-5 build point — not the drifting release branch).
+
+  KEY CORRECTNESS FIX vs prior attempts:
+    * 'common' is OVERRIDDEN with Moto's kernel-common (1116 patches ahead of pristine
+      AOSP GKI). The shipped kernel is Moto's patched common, NOT stock GKI — building
+      stock GKI is what produced mismatched module CRCs and bootlooped.
+    * Everything pinned to the tag, so the tree is byte-reproducible.
+
+  Paths verified against Moto Bazel load() labels + OnePlus SM8845 (same SoC). See docs/SOURCES.md.
+-->
+<manifest>
+  <remote name="moto" fetch="https://github.com/MotorolaMobilityLLC" />
+
+  <!-- override AOSP pristine GKI with Moto's patched common (+1116 commits) -->
+  <remove-project name="kernel/common" />
+  <project remote="moto" name="kernel-common" path="common" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- Moto's kleaf fork (has build_kernel_product.sh, which generates soc-repo/moto_product.bzl,
+       plus Moto's defconfig_fragment / search_and_cp_output tweaks the canoe target relies on).
+       Overrides AOSP's build/kernel (name kernel/build). -->
+  <remove-project name="kernel/build" />
+  <project remote="moto" name="kernel_platform-build-kernel" path="build/kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- SoC kernel (build driver lives here: soc-repo/build_with_bazel.py) -->
+  <project remote="moto" name="kernel-msm" path="soc-repo" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- main device tree: Moto relocated it INSIDE soc-repo (verified: msm_kernel_extensions.bzl) -->
+  <project remote="moto" name="kernel-devicetree" path="soc-repo/arch/arm64/boot/dts/vendor" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- QCOM vendor kernel modules -> vendor/qcom/opensource/<name> -->
+  <project remote="moto" name="vendor-qcom-opensource-audio-kernel" path="vendor/qcom/opensource/audio-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-bt-kernel" path="vendor/qcom/opensource/bt-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-dsp-kernel" path="vendor/qcom/opensource/dsp-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-eva-kernel" path="vendor/qcom/opensource/eva-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-graphics-kernel" path="vendor/qcom/opensource/graphics-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-securemsm-kernel" path="vendor/qcom/opensource/securemsm-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-spu-kernel" path="vendor/qcom/opensource/spu-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-synx-kernel" path="vendor/qcom/opensource/synx-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-camera-kernel" path="vendor/qcom/opensource/camera-kernel" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- WLAN (nested under wlan/) -->
+  <project remote="moto" name="vendor-qcom-opensource-wlan-platform"          path="vendor/qcom/opensource/wlan/platform"          revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-wlan-qcacld-3.0"        path="vendor/qcom/opensource/wlan/qcacld-3.0"        revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="vendor-qcom-opensource-wlan-qca-wifi-host-cmn" path="vendor/qcom/opensource/wlan/qca-wifi-host-cmn" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- subsystem device trees -> vendor/qcom/opensource/<x>-devicetree -->
+  <project remote="moto" name="kernel-audio-devicetree" path="vendor/qcom/opensource/audio-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-bt-devicetree" path="vendor/qcom/opensource/bt-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-data-devicetree" path="vendor/qcom/opensource/data-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-display-devicetree" path="vendor/qcom/opensource/display-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-dsp-devicetree" path="vendor/qcom/opensource/dsp-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-eSE-devicetree" path="vendor/qcom/opensource/eSE-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-mm-devicetree" path="vendor/qcom/opensource/mm-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-nfc-devicetree" path="vendor/qcom/opensource/nfc-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-video-devicetree" path="vendor/qcom/opensource/video-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-camera-devicetree" path="vendor/qcom/opensource/camera-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-wlan-devicetree" path="vendor/qcom/opensource/wlan/wlan-devicetree" revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- techpack driver stacks -->
+  <project remote="moto" name="kernel-msm-5.4-techpack-display" path="vendor/qcom/opensource/display-drivers" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <project remote="moto" name="kernel-msm-techpack-dataipa"     path="vendor/qcom/opensource/dataipa"         revision="refs/tags/MMI-W3WB36.36-48-5" />
+
+  <!-- Motorola kernel modules -->
+  <project remote="moto" name="motorola-kernel-modules" path="motorola/kernel/modules" revision="refs/tags/MMI-W3WB36.36-48-5" />
+</manifest>

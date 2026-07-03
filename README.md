@@ -16,9 +16,16 @@ Motorola's published OSS**, assembled correctly via `repo` manifest (no hand-clo
 ## Why this repo exists (start-over rationale)
 Earlier attempts assembled `kernel_platform/` by hand-cloning ~30 repos, mixing in the OnePlus
 SM8845 tree to fill gaps, and never had a provably-correct layout — every flashed result
-bootlooped. This harness fixes the *assembly*: it pins the GKI base + build infrastructure to the
-**exact AOSP tag Moto built against**, then overlays **only** Moto's vendor source at verified
-paths. Deterministic, re-runnable, and diffable.
+bootlooped. This harness fixes the *assembly*: everything is pinned to the **immutable build tag
+`MMI-W3WB36.36-48-5`** (the exact W3WB36.36-48-5 build point) and overlaid at **evidence-verified
+paths**. Deterministic, re-runnable, diffable.
+
+**The likely root cause it fixes:** Moto's GKI `common` is **1,116 commits ahead** of pristine
+AOSP GKI — the shipped kernel is Moto's *patched* common, not stock GKI. A prior "pristine" build
+compiled stock `//common:kernel_aarch64` and only *looked* correct because it hardcoded the stock
+`SCMVERSION` stamp; the real code (and thus every exported-symbol CRC) differed, so factory
+`vendor_dlkm` modules were rejected → bootloop. This manifest pulls `common` from Moto's
+`kernel-common` at the tag. See `docs/SOURCES.md`.
 
 ## Layout strategy
 - **Base** = AOSP GKI kernel manifest at `android16-6.12-2025-09_r15`. Provides `common/`,
