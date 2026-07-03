@@ -44,6 +44,9 @@
   <project remote="moto" name="kernel_platform-external-bazelbuild-rules_shell" path="external/bazelbuild/rules_shell" revision="refs/tags/MMI-W3WB36.36-48-5" />
   <project remote="moto" name="kernel_platform-external-bazelbuild-bazel-central-registry" path="external/bazelbuild/bazel-central-registry" revision="refs/tags/MMI-W3WB36.36-48-5" />
   <project remote="moto" name="kernel_platform-external-bazel-contrib-bazel_features" path="external/bazel-contrib/bazel_features" revision="refs/tags/MMI-W3WB36.36-48-5" />
+  <!-- QCOM's patched device-tree-compiler; soc-repo/bazel.WORKSPACE expects it at external/qcom-dtc
+       (distinct from AOSP's external/dtc). Needed by //soc-repo:canoe_perf_dtc_dist. -->
+  <project remote="moto" name="kernel-external-dtc" path="external/qcom-dtc" revision="refs/tags/MMI-W3WB36.36-48-5" />
 
   <!-- SoC kernel (build driver lives here: soc-repo/build_with_bazel.py) -->
   <project remote="moto" name="kernel-msm" path="soc-repo" revision="refs/tags/MMI-W3WB36.36-48-5" />
