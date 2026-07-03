@@ -36,7 +36,8 @@ docker run --rm --platform=linux/amd64 \
     apt-get update -qq
     apt-get install -y --no-install-recommends \
       git curl python3 python-is-python3 unzip zip rsync bc bison flex libssl-dev \
-      ca-certificates make gcc g++ libelf-dev cpio kmod openssl >/dev/null
+      ca-certificates make gcc g++ libelf-dev cpio kmod openssl \
+      patch diffutils gawk perl xz-utils lz4 zstd >/dev/null
     # repo tool
     if ! command -v repo >/dev/null; then
       curl -s https://storage.googleapis.com/git-repo-downloads/repo -o /usr/local/bin/repo
