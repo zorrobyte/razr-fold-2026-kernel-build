@@ -55,9 +55,12 @@ if [ -f "$QD/version_gen.h.in" ]; then
   ver="$(sed -f "$QD/METADATA_version.sed" -n "$QD/METADATA" 2>/dev/null | head -1)"
   [ -n "$ver" ] || ver="1.4.2"
   sed "s/@VCS_TAG@/${ver}-Android-build/" "$QD/version_gen.h.in" > "$QD/version_gen.h"
-  cp -f "$QD/version_gen.h" "$QD/version_non_gen.h"
 fi
 rm -f "$QD/BUILD.bazel"
+# util.c always #includes "version_gen.h", but BUILD.dtc's fdtget/fdtput/etc. targets list
+# "version_non_gen.h" as their src (so it's not staged in their sandbox -> header not found). Point
+# those srcs at the generated version_gen.h so every util.c-compiling target stages it. Idempotent.
+sed -i 's/version_non_gen\.h/version_gen.h/g' "$KP/soc-repo/BUILD.dtc"
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
