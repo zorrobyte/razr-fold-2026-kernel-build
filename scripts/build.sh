@@ -45,6 +45,12 @@ rm -f "$KP/motorola/motorola"
 BZI="$KP/.bazelignore"; touch "$BZI"
 grep -qxF "soc-repo/bazel-cache" "$BZI" || echo "soc-repo/bazel-cache" >> "$BZI"
 
+# The dtc kleaf_local_repository symlinks every child of external/qcom-dtc into the repo AND then
+# symlinks BUILD.bazel from soc-repo/BUILD.dtc (its canonical build_file). Moto's kernel-external-dtc
+# ships a stray root BUILD.bazel, so the two collide ("File exists"). BUILD.dtc is the intended one,
+# so drop the source's BUILD.bazel. Same for external/dtc if present.
+rm -f "$KP/external/qcom-dtc/BUILD.bazel" "$KP/external/qcom-dtc/BUILD"
+
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
 echo ">> building canoe $VARIANT"
