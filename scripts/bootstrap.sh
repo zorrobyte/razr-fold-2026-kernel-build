@@ -39,8 +39,15 @@ repo init -u "$AOSP_MANIFEST" -b common-android16-6.12 --depth=1
 mkdir -p .repo/local_manifests
 cp "$HERE/manifests/moto-canoe.xml" .repo/local_manifests/moto-canoe.xml
 
-# 3) sync everything
-repo sync -c -j"$(nproc)" --no-tags --optimized-fetch --prune --force-sync
+# 3) sync everything. Large prebuilts (clang is several GB) sometimes drop mid-fetch on a flaky
+# connection; repo sync is resumable, so retry a few times before giving up.
+synced=0
+for attempt in 1 2 3 4 5 6; do
+  if repo sync -c -j"$(nproc)" --no-tags --optimized-fetch --prune --force-sync; then synced=1; break; fi
+  echo ">> repo sync attempt $attempt failed (likely transient network on a big repo); retrying in 8s..."
+  sleep 8
+done
+[ "$synced" = 1 ] || { echo "!! repo sync still failing after retries — check network; the tree is resumable, just re-run."; exit 1; }
 
 echo
 echo ">> Tree assembled at $WORKDIR/kernel_platform"
