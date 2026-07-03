@@ -55,6 +55,13 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cp -f "$HARNESS_DIR/overlays/qcom-dtc-BUILD.bazel" "$KP/soc-repo/BUILD.dtc"
 rm -f "$KP/external/qcom-dtc/BUILD.bazel"
 
+# Moto's soc-repo/device.bazelrc holds REQUIRED device flags (allow_ddk_unsafe_headers +
+# user_ddk_unsafe_headers=//soc-repo:unsafe_headers_qcom_group so vendor modules can include private
+# kernel headers like drivers/base/regmap/internal.h; socrepo/qtisocrepo=true; check_visibility=false;
+# JVM heap) — but nothing in this build flow loads it. Append it to a bazelrc kleaf DOES load
+# (local.bazelrc, restored by --force-sync each run so this stays a single append).
+cat "$KP/soc-repo/device.bazelrc" >> "$KP/build/kernel/kleaf/bazelrc/local.bazelrc"
+
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
 # Skip the dtc TOOL dist (canoe_perf_dtc_dist): soc-repo/BUILD.bazel references @dtc//:fdtoverlaymerge,
