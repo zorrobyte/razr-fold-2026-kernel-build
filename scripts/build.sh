@@ -57,9 +57,15 @@ rm -f "$KP/external/qcom-dtc/BUILD.bazel"
 
 # 2) build. KLEAF_USE_KLEAF_LOCALVERSION reproduces Moto's stock vermagic stamp.
 cd "$KP/soc-repo"
-echo ">> building canoe $VARIANT"
+# Skip the dtc TOOL dist (canoe_perf_dtc_dist): soc-repo/BUILD.bazel references @dtc//:fdtoverlaymerge,
+# but Moto never published fdtoverlaymerge.c, so that dist is unbuildable from OSS. The kernel
+# (canoe_perf_dist) only needs the dtc COMPILER, which builds fine. build_with_bazel.py's --skip both
+# filters the target AND adds an undefined --//soc-repo:skip_<x>=true flag; patch it to treat 'dtc'
+# like 'abi' (filter only, no flag). Idempotent-ish (sed no-ops if already patched / restored by sync).
+sed -i "s/for s in self.skip_list if s != 'abi'/for s in self.skip_list if s not in ('abi', 'dtc')/" build_with_bazel.py
+echo ">> building canoe $VARIANT (skip abl + dtc tool dist)"
 export KLEAF_USE_KLEAF_LOCALVERSION=true
-python3 build_with_bazel.py -t canoe "$VARIANT" --skip abl
+python3 build_with_bazel.py -t canoe "$VARIANT" --skip abl --skip dtc
 
 DIST="$KP/out/msm-kernel-canoe-$VARIANT/dist"
 echo; echo ">> dist: $DIST"
