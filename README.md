@@ -34,6 +34,11 @@ overriding `GKI_TASK_STRUCT_VENDOR_SIZE_MAX` away from its **default 512**, and 
 only the kernel over the **stock** `vendor_dlkm`. This manifest pulls `common` from Moto's
 `kernel-common` at the tag. See `docs/SOURCES.md`.
 
+**The from-source kernel now boots fully to home with working audio, Bluetooth, Wi-Fi and NFC** —
+build with **`--notrim`** (finding #3 below) to disable the GKI `MODULE_SIG_PROTECT` that otherwise
+rejects the stock-signed `rfkill`/`bluetooth` modules and blocks the sound card. `--notrim` also gives
+an untrimmed kernel (all symbols exported), which is the correct baseline for the Lindroid EVDI work.
+
 ## Layout strategy
 - **Base** = AOSP GKI kernel manifest at `android16-6.12-2025-09_r15`. Provides `common/`,
   `build/kernel`, `external/*`, `prebuilts/clang`, `dtc`, `kleaf` — Google-pinned and mutually
@@ -66,6 +71,51 @@ Slower than native x86 (~1.5–3×) but very usable on an M-series with plenty o
 The pristine PERF build **must boot before any modification.** See `docs/FLASH-AND-BOOTLOOP.md`
 for the flashing rules that actually matter (they are why prior builds looped) and the recovery
 path.
+
+## Full reproduction from a clean machine (wipe-proof)
+Everything needed to go from a blank PC to the working phone. The **source** rebuilds the kernel
+bit-for-bit; the one thing this repo can *not* legally contain is Motorola's proprietary firmware, so
+that's an external download (below).
+
+**Prerequisites**
+- x86-64 Linux or **WSL2 Ubuntu** (Apple Silicon: see `scripts/mac-build.sh`). ~150 GB free disk, ≥32 GB RAM.
+  - On WSL2/Arrow-Lake, cap cores to avoid SMP-corruption build crashes: `~/.wslconfig` → `[wsl2]` / `processors=8`.
+- `repo`, plus: `git curl python3 python-is-python3 unzip zip rsync bc bison flex libssl-dev libelf-dev make gcc g++`
+- Platform-tools (`adb`/`fastboot`), an **unlocked bootloader**, and **Magisk-patched `init_boot`** for root.
+- **Stock factory firmware** for `blanc` (build `W3WB36.36-48-5`): the
+  `BLANC_G_W3WBS36.36_48_5_*_CFC.xml.zip` from Lenovo/Motorola **Rescue and Smart Assistant (LMSA)**.
+  Required for the stock `vendor_dlkm` / `system_dlkm` / `dtbo` / `vendor_boot` / `vbmeta` that we flash
+  *alongside* our kernel, and for bootloop recovery. Unpack `super` with `simg2img` + `lpunpack`.
+
+**Build**
+```bash
+scripts/bootstrap.sh            # assemble tree at ~/kp-canoe/kernel_platform (pinned tag, ~60GB sync)
+scripts/build.sh perf           # builds WITH --notrim  ->  out/msm-kernel-canoe-perf/dist/boot.img
+grep -w vendor_data_pad out/msm-kernel-canoe-perf/dist/*/Module.symvers   # gate: must be 0xf54e5881
+```
+`build.sh` already passes `--notrim` (finding #3) so audio/BT/Wi-Fi/NFC work and the kernel is untrimmed
+for out-of-tree modules. *Or* skip the build and grab the prebuilt `boot.img` from
+[**Releases**](https://github.com/zorrobyte/razr-fold-2026-kernel-build/releases) (`boot_notrim.img`
++ `config` + `Module.symvers` + `SHA256SUMS`).
+
+**Flash** (our kernel only; keep every other partition **stock**)
+```bash
+# from fastbootd for super sub-partitions; bootloader for boot/vbmeta
+fastboot flash boot_a            out/msm-kernel-canoe-perf/dist/boot.img      # OUR kernel (--notrim)
+fastboot --disable-verity --disable-verification flash vbmeta        <factory>/vbmeta.img
+fastboot --disable-verity --disable-verification flash vbmeta_system <factory>/vbmeta_system.img
+# vendor_boot / dtbo / super(vendor_dlkm,system_dlkm) stay STOCK (from the factory zip) — do NOT flash
+# the from-source vendor_dlkm (finding #2). Re-flash Magisk-patched init_boot to keep root.
+fastboot reboot
+```
+
+**Verify** (device should reach home; on our kernel with `su`):
+```bash
+adb shell getprop sys.boot_completed          # 1
+adb shell su -c 'cat /proc/asound/cards'      # 0 [alorqrdsndcard]  -> audio works
+adb shell su -c 'grep -c ^rfkill /proc/modules'  # 1 -> protected-module load fixed
+```
+Recovery if it loops: `fastboot flash boot_a <factory>/boot.img` (stock kernel boots; audio+all), then retry.
 
 ## Pristine → modified
 `manifests/moto-canoe.xml` pins Moto **upstream** for a clean-room baseline. To layer changes
@@ -111,6 +161,49 @@ modules. Extract the stock `vendor_dlkm` from the factory `super` with `simg2img
 **vermagic/scmversion does NOT need to match** — with MODVERSIONS the version string isn't enforced
 (stock ships a `g1d46…` kernel with `-maybe-dirty` modules); CRCs are what matter. So the
 `--config=stamp` scmversion trick is unnecessary.
+
+### 3. No audio / boot never completes — build with `--notrim` (GKI `MODULE_SIG_PROTECT`)
+Once findings #1–2 are right, the from-source kernel **boots to the animation but never reaches
+home**: `/proc/asound/cards` = *no soundcards*, and the audio HAL aborts (`AHAL init took more than
+30 S, rebooting`) so `sys.boot_completed` never flips. This is **the kernel binary**, not the
+modules/DT/config — proven by a controlled swap: stock kernel + these exact stock modules/DT = audio
+works; our from-source kernel + the same = no audio.
+
+Root cause: the machine sound card `alor-qrd-snd-card` has Bluetooth/FM dai_links, so it registers
+**all-or-nothing**. Its BT/FM CPU DAIs come from the ASoC component **`btfmcodec_dev`**, whose module
+chain is `rfkill → btpower → bt_fm_swr`/`btfm_slim_codec → btfmcodec`. On a from-source vmlinux that
+chain dies at the bottom:
+```
+rfkill: exports protected symbol rfkill_alloc      # -> rfkill fails to load (EPERM)
+btpower: Unknown symbol rfkill_alloc
+bt_fm_swr: Unknown symbol btpower_get_chipset_version
+# -> no btfmcodec_dev -> card defers forever -> HAL aborts -> boot never completes
+```
+`CONFIG_MODULE_SIG_PROTECT=y` (pulled in whenever KMI trimming is on) makes GKI **protected modules**
+(`rfkill`, `bluetooth`, `nfc`) refuse to load unless their signature validates. The stock, Google-signed
+`rfkill.ko` fails validation against our **own** from-source vmlinux (which trusts a different, build-time
+autogenerated key — even our *own* rebuilt `rfkill.ko` is rejected), so `sig_ok=false` and its protected
+export `rfkill_alloc` is blocked (`common/kernel/module/main.c`: `if (!mod->sig_ok &&
+is_protected_symbol_export(name)) reject`). Stock's certified GKI vmlinux trusts its modules; a
+rebuilt-from-source vmlinux does not.
+
+**Fix — build with kleaf `--notrim`.** `--notrim` disables `TRIM_NONLISTED_KMI` globally; per
+`build/kernel/kleaf/impl/kernel_config.bzl`, `MODULE_SIG_PROTECT_LIST` is only set when trimming is on,
+so `notrim` leaves it empty → `MODULE_SIG_PROTECT=n` → protected modules load regardless of signature.
+Result: `rfkill`/`bluetooth`/`nfc` load, `btfmcodec_dev` registers, the card comes up
+(`0 [alorqrdsndcard]`), and the device boots to home with working audio (and BT/Wi-Fi/NFC). **Bonus:**
+an untrimmed kernel exports *all* symbols — exactly what out-of-tree modules (e.g. Lindroid's EVDI) need,
+so this is the right baseline for the Lindroid work anyway. The harness passes `--notrim` to
+`build_with_bazel.py` (forwarded to Bazel via `--flag_alias=notrim`).
+
+Two things that look like the cause but are **not**: (a) `wsa-macro`/`wsa2-macro` show `status=disabled`
++ `qcom,num-macros=3` in the running DT — that's the *correct* stock config for this board (id
+`0x41/0xb1b0`); the Fold drives speakers via **`tfa98xx`** smart amps, not WSA. (b) There are **no**
+in-kernel q6/AFE/ASM backend DAIs on stock *or* ours — this SoC is **AudioReach**, where the DSP graph
+lives in ADSP firmware and is driven over GPR; the stubbed `q6_init.c` / 17 KB `q6_dlkm.ko` are normal,
+not a Moto omission. Diagnose by diffing `/sys/kernel/debug/asoc/{components,dais}` and
+`/proc/asound/cards` stock-vs-ours (only `btfmcodec_dev` differs), then `insmod` the btfm chain by hand
+to surface the `exports protected symbol` rejection.
 
 ### Recovering a panicking kernel's console log (pstore / ramoops)
 pstore lives in reserved RAM that **survives a warm reboot** — a `panic=-1` bootloop *is* a warm

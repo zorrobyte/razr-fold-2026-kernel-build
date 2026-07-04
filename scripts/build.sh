@@ -84,7 +84,7 @@ cd "$KP/soc-repo"
 sed -i "s/for s in self.skip_list if s != 'abi'/for s in self.skip_list if s not in ('abi', 'dtc')/" build_with_bazel.py
 echo ">> building canoe $VARIANT (skip abl + dtc tool dist)"
 export KLEAF_USE_KLEAF_LOCALVERSION=true
-python3 build_with_bazel.py -t canoe "$VARIANT" --skip abl --skip dtc
+python3 build_with_bazel.py -t canoe "$VARIANT" --skip abl --skip dtc --notrim
 
 DIST="$KP/out/msm-kernel-canoe-$VARIANT/dist"
 echo; echo ">> dist: $DIST"
