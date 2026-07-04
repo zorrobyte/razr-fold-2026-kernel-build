@@ -93,10 +93,15 @@ scripts/bootstrap.sh            # assemble tree at ~/kp-canoe/kernel_platform (p
 scripts/build.sh perf           # builds WITH --notrim  ->  out/msm-kernel-canoe-perf/dist/boot.img
 grep -w vendor_data_pad out/msm-kernel-canoe-perf/dist/*/Module.symvers   # gate: must be 0xf54e5881
 ```
-`build.sh` already passes `--notrim` (finding #3) so audio/BT/Wi-Fi/NFC work and the kernel is untrimmed
-for out-of-tree modules. *Or* skip the build and grab the prebuilt `boot.img` from
-[**Releases**](https://github.com/zorrobyte/razr-fold-2026-kernel-build/releases) (`boot_notrim.img`
-+ `config` + `Module.symvers` + `SHA256SUMS`).
+`build.sh` passes `--notrim` (finding #3) so audio/BT/Wi-Fi/NFC work, and **by default also builds the
+full Lindroid kernel** (container configs + EVDI + ABI patches — `scripts/build.sh` section `0)`, see
+`docs/LINDROID.md`). Set `LINDROID=0` for a plain audio-only kernel. *Or* skip the build and grab a
+prebuilt `boot.img` from
+[**Releases**](https://github.com/zorrobyte/razr-fold-2026-kernel-build/releases):
+- **`lindroid-w3wb36.36-48-5`** — `boot_lindroid.img` (boots to home with audio **+** Lindroid
+  containers + EVDI) plus `config` / `Module.symvers` / `SHA256SUMS`; also bundles `boot_notrim.img`
+  as a recovery/fallback (audio only, no container ABI changes).
+- **`w3wb36.36-48-5-audio`** — the earlier audio-only kernel.
 
 **Flash** (our kernel only; keep every other partition **stock**)
 ```bash
@@ -114,8 +119,12 @@ fastboot reboot
 adb shell getprop sys.boot_completed          # 1
 adb shell su -c 'cat /proc/asound/cards'      # 0 [alorqrdsndcard]  -> audio works
 adb shell su -c 'grep -c ^rfkill /proc/modules'  # 1 -> protected-module load fixed
+# Lindroid kernel only:
+adb shell su -c 'unshare --user --pid --ipc --uts --fork echo OK'   # OK -> container namespaces
+adb shell su -c 'cat /sys/module/evdi/version; ls /dev/dri'         # 1.0.0 ; card0 renderD128 -> EVDI
 ```
-Recovery if it loops: `fastboot flash boot_a <factory>/boot.img` (stock kernel boots; audio+all), then retry.
+Recovery if it loops: `fastboot flash boot_a boot_notrim.img` (audio-only kernel; boots) or
+`<factory>/boot.img` (full stock), then retry.
 
 ## Pristine → modified
 `manifests/moto-canoe.xml` pins Moto **upstream** for a clean-room baseline. The **Lindroid**
