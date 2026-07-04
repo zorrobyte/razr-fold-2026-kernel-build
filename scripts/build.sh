@@ -17,6 +17,61 @@ VARIANT="${1:-perf}"
 WORKDIR="${2:-$HOME/kp-canoe}"
 PRODUCT="${PRODUCT:-blanc_g}"      # -> mmi_product_name=blanc, mmi_product_type=g
 KP="$WORKDIR/kernel_platform"
+HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# 0) Lindroid (Linux-on-droid) enablement — inject the container + display kernel bits so the
+# from-source kernel supports Lindroid LXC containers + the EVDI virtual display. Three parts:
+#   (a) vendored out-of-tree EVDI DRM driver -> common/drivers/gpu/drm/lindroid/ (+ Kconfig/Makefile hooks)
+#   (b) container/display defconfig fragment (configs/lindroid_gki.fragment) dropped into
+#       common/arch/arm64/configs/ and attached to the BASE //common:kernel_aarch64 as a
+#       pre_defconfig_fragment (NOT a Moto device fragment). These are ABI-affecting core-kernel opts
+#       (USER_NS turns from_kuid_munged into a real EXPORT_SYMBOL); vendor DDK modules link against the
+#       BASE Module.symvers, so the base must carry them or modpost fails ("from_kuid_munged undefined").
+#   (c) patch common/BUILD.bazel's kernel_aarch64 target to reference the fragment + set
+#       check_defconfig="disabled" (savedefconfig would otherwise reject the added options).
+# All idempotent; a fresh bootstrap resets common/ and the next build.sh re-applies. Set LINDROID=0 to skip.
+if [ "${LINDROID:-1}" = "1" ]; then
+	DRM="$KP/common/drivers/gpu/drm"
+	mkdir -p "$DRM/lindroid/uapi"
+	cp -f "$HARNESS_DIR"/lindroid/evdi/*.c "$HARNESS_DIR"/lindroid/evdi/*.h \
+	      "$HARNESS_DIR"/lindroid/evdi/Kconfig "$HARNESS_DIR"/lindroid/evdi/Makefile "$DRM/lindroid/" 2>/dev/null
+	cp -f "$HARNESS_DIR"/lindroid/evdi/uapi/*.h "$DRM/lindroid/uapi/" 2>/dev/null
+	# hook Kconfig: source the driver's Kconfig. Appended at file scope (end) — the config's own
+	# `depends on DRM` gates it, so menu placement is irrelevant for a defconfig-driven build.
+	grep -q 'drivers/gpu/drm/lindroid/Kconfig' "$DRM/Kconfig" || \
+		printf '\nsource "drivers/gpu/drm/lindroid/Kconfig"\n' >> "$DRM/Kconfig"
+	# hook Makefile: descend into lindroid/ when the driver is enabled
+	grep -q 'CONFIG_DRM_LINDROID_EVDI) += lindroid/' "$DRM/Makefile" || \
+		echo 'obj-$(CONFIG_DRM_LINDROID_EVDI) += lindroid/' >> "$DRM/Makefile"
+	# base defconfig fragment (plain CONFIG_x=y format) into the GKI configs dir
+	cp -f "$HARNESS_DIR/configs/lindroid_gki.fragment" "$KP/common/arch/arm64/configs/lindroid_gki.fragment"
+	# attach it to //common:kernel_aarch64 (unique anchor; the _16k/_tv/... targets keep the "64_" prefix)
+	grep -q 'lindroid_gki.fragment' "$KP/common/BUILD.bazel" || \
+		sed -i 's#^\(    name = "kernel_aarch64",\)$#\1\n    check_defconfig = "disabled",\n    pre_defconfig_fragments = ["arch/arm64/configs/lindroid_gki.fragment"],#' "$KP/common/BUILD.bazel"
+	# enabling the namespace configs makes GKI modules reference namespace symbols the ACK leaves
+	# un-exported: CONFIG_IPC_NS -> rust_binder.ko needs put_ipc_ns/init_ipc_ns. EXPORT them (idempotent,
+	# appended after their definitions). (CONFIG_USER_NS's from_kuid_munged is already EXPORT_SYMBOL'd.)
+	grep -q 'EXPORT_SYMBOL(put_ipc_ns)' "$KP/common/ipc/namespace.c" || \
+		echo 'EXPORT_SYMBOL(put_ipc_ns);' >> "$KP/common/ipc/namespace.c"
+	grep -q 'EXPORT_SYMBOL(init_ipc_ns)' "$KP/common/ipc/msgutil.c" || \
+		echo 'EXPORT_SYMBOL(init_ipc_ns);' >> "$KP/common/ipc/msgutil.c"
+	# The namespace configs change core structs, shifting module_layout (and other) CRCs, so the
+	# prebuilt STOCK modules (kept as-is — no vendor_dlkm sources) fail check_version with "disagrees
+	# about version of symbol module_layout" -> no storage -> first-stage-mount panic. Force-load them:
+	# make check_version's bad_version path accept (warn, not fail). MODVERSIONS stays y so vermagic
+	# (same_magic) still matches stock. Idempotent (marker-guarded). Safe: changed structs are namespace
+	# internals the vendor HW drivers don't touch at runtime.
+	VER="$KP/common/kernel/module/version.c"
+	grep -q 'lindroid force-load' "$VER" || \
+		sed -i '/disagrees about version of symbol/{n;s|return 0;|return 1; /* lindroid force-load: accept ABI CRC shift from container configs */|}' "$VER"
+	# ABI-preserving SYSVIPC: CONFIG_SYSVIPC adds sysvsem/sysvshm to task_struct BEFORE
+	# android_vendor_data, shifting offsets so the stock sched_walt module NULL-derefs. Relocate those
+	# 24 bytes into ANDROID_KABI_RESERVE(1..3) (after android_vendor_data) so task_struct stays
+	# byte-identical to the frozen SYSVIPC=off GKI ABI. Idempotent (marker-guarded).
+	grep -q 'lindroid: sysvsem/sysvshm relocated' "$KP/common/include/linux/sched.h" || \
+		patch -p1 -d "$KP/common" < "$HARNESS_DIR/lindroid/patches/task_struct-sysvipc-kabi.patch"
+	echo ">> lindroid: EVDI + base fragment + ns exports + force-load + task_struct KABI patch"
+fi
 
 # 1a) generate soc-repo/moto_product.bzl  (run from WORKDIR; wrapper paths are relative to it)
 cd "$WORKDIR"

@@ -118,9 +118,11 @@ adb shell su -c 'grep -c ^rfkill /proc/modules'  # 1 -> protected-module load fi
 Recovery if it loops: `fastboot flash boot_a <factory>/boot.img` (stock kernel boots; audio+all), then retry.
 
 ## Pristine → modified
-`manifests/moto-canoe.xml` pins Moto **upstream** for a clean-room baseline. To layer changes
-(e.g. the Lindroid LXC/EVDI work), repoint the relevant projects to your `zorrobyte` forks in a
-second local manifest and rebuild `consolidate`. Do the baseline first.
+`manifests/moto-canoe.xml` pins Moto **upstream** for a clean-room baseline. The **Lindroid**
+LXC/EVDI enablement is now built into this harness (`scripts/build.sh` section `0)`, driven by
+`configs/lindroid_gki.fragment` + the vendored `lindroid/evdi/` driver) and applied by default — see
+`docs/LINDROID.md`. Do the pristine PERF build first to confirm it boots; Lindroid changes ride on
+top of it.
 
 ## Verified findings & debugging (2026-07-04)
 
@@ -228,3 +230,6 @@ source-correspondence gap is filed at **MotorolaMobilityLLC/kernel-msm#849**.
 - `docs/FLASH-AND-BOOTLOOP.md` — the proven root cause of every past bootloop + the correct flash
   recipe (matched vendor_dlkm + verity off, or a MODVERSIONS=n kernel), and recovery.
 - `docs/SOURCES.md` — the full verified repo→path map with evidence.
+- `docs/LINDROID.md` — the Lindroid (Linux-on-droid) kernel enablement: the 9 container/display
+  configs (as a **base** `kernel_aarch64` fragment, with the `from_kuid_munged` ABI rationale) and
+  the vendored EVDI DRM driver + its 6.12 compat patches. Built in by default (`LINDROID=0` to skip).

@@ -1,0 +1,27 @@
+# Lindroid (Linux-on-droid) kernel requirements — applied as a pre_defconfig_fragment on the BASE
+# GKI kernel (//common:kernel_aarch64), NOT as a Moto device fragment. Reason: these are ABI-affecting
+# core-kernel options (e.g. USER_NS flips from_kuid_munged from a static inline to a real EXPORT_SYMBOL).
+# The device build uses //common:kernel_aarch64 as its base_kernel and vendor DDK modules (msm_sysstats)
+# link against the BASE Module.symvers — so the base must have these or the modules fail modpost
+# ("from_kuid_munged undefined"). Enabling them on the base keeps base vmlinux + symvers + device
+# modules consistent. Plain defconfig format (CONFIG_x=y), one per line.
+#
+# Already =y in gki_defconfig for our kernel (omitted): UTS_NS, NET_NS, CGROUP_FREEZER, NAMESPACES,
+# CGROUPS, MEMCG, OVERLAY_FS, ANDROID_BINDER_IPC/BINDERFS, DRM, VETH, BRIDGE, FUSE_FS.
+# NOTE on module ABI: enabling the namespace configs below changes core structs and thus the global
+# module-ABI CRC (module_layout: 0xe976b219 -> 0xe351f8ce), so the prebuilt STOCK modules (which we
+# must keep — no proprietary sources to rebuild vendor_dlkm) would fail to load. We deliberately keep
+# CONFIG_MODVERSIONS=y here (so vermagic stays compatible and same_magic() passes — disabling it makes
+# modules ENOEXEC on vermagic instead). build.sh instead patches kernel/module/version.c to force-load
+# modules despite the CRC mismatch (safe: the changed structs are namespace internals vendor HW
+# drivers never touch). See docs/LINDROID.md.
+
+CONFIG_SYSVIPC=y
+CONFIG_PID_NS=y
+CONFIG_IPC_NS=y
+CONFIG_USER_NS=y
+CONFIG_CGROUP_DEVICE=y
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_ZSTD=y
+CONFIG_DRM_LINDROID_EVDI=y
