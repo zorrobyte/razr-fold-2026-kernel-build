@@ -1,5 +1,10 @@
 # Lindroid (Linux-on-droid) kernel enablement
 
+**Status: boot-verified working** on the Razr Fold 2026. The from-source kernel boots to home with
+audio/BT/Wi-Fi/NFC **and** the full container stack: all 9 configs live, `unshare --user --pid --ipc
+--uts --fork` works, EVDI loads (`/sys/module/evdi` v1.0.0, `/dev/dri/card0` + `renderD128`), and the
+stock `sched_walt` module does not crash (the `task_struct` ABI is preserved — see below).
+
 This kernel is patched to satisfy the **kernel-side** requirements for
 [Lindroid](https://github.com/Linux-on-droid) — running a real Linux distro in an LXC container
 alongside Android, sharing this kernel, with a virtual DRM display. Everything here is injected by
