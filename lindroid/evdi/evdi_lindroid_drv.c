@@ -36,6 +36,10 @@ static const struct file_operations evdi_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = drm_compat_ioctl,
 #endif
+	/* Kernel 6.12 drm_open_helper WARNs+EINVALs without this flag. */
+#ifdef FOP_UNSIGNED_OFFSET
+	.fop_flags = FOP_UNSIGNED_OFFSET,
+#endif
 };
 #endif
 

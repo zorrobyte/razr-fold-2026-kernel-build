@@ -74,11 +74,25 @@ DRM `Kconfig`, and `obj-$(CONFIG_DRM_LINDROID_EVDI) += lindroid/` to the DRM `Ma
 (`=y`) to sidestep GKI module-list checks and module packaging.
 
 ### 6.12 compat patches (kept in the vendored source)
-The upstream driver needed two small fixes for kernel 6.12, applied in
+The upstream driver needed three small fixes for kernel 6.12, applied in
 `lindroid/evdi/evdi_lindroid_drv.c` and version-guarded so it still builds on older kernels:
 - **`DRM_UNLOCKED` removed** (>=6.8, all DRM ioctls are unlocked): shimmed to `0` when undefined.
 - **`platform_driver::remove` returns `void`** (>=6.11, was `int`): guarded with
   `KERNEL_VERSION(6, 11, 0)`.
+- **`FOP_UNSIGNED_OFFSET` required on the DRM `file_operations`** (>=6.12): without it,
+  `drm_open_helper()` (`drivers/gpu/drm/drm_file.c:316`) does
+  `WARN_ON_ONCE(!(filp->f_op->fop_flags & FOP_UNSIGNED_OFFSET))` and returns **`-EINVAL`**, so
+  **every `open()` of an EVDI card node fails**. The custom `evdi_fops` doesn't use
+  `DEFINE_DRM_GEM_FOPS` (which sets this on 6.12), so we add `.fop_flags = FOP_UNSIGNED_OFFSET`
+  under `#ifdef FOP_UNSIGNED_OFFSET`.
+
+  **Symptom this fixes:** on-device the Lindroid desktop is a black screen. Inside the container,
+  `create-disp` logs `evdi-lindroid still not available after add attempt` and spins in a restart
+  loop (each retry writes `/sys/devices/evdi-lindroid/add`, leaking dozens of card nodes), and
+  `kwin_wayland` reports `failed to open drm device ... /dev/dri/by-path/platform-evdi-lindroid.0-card`.
+  Root cause is this single `open()` → `EINVAL`. Confirm with a raw open of a fresh card:
+  `echo 1 > /sys/devices/evdi-lindroid/add` then `open("/dev/dri/cardN", O_RDWR)` — returns `EINVAL`
+  before the fix, succeeds after. (`card0`/the real GPU opens fine either way.)
 
 ## The GKI ABI wall (and how we get past it)
 Enabling the container configs on a device that must keep **prebuilt stock proprietary modules**
