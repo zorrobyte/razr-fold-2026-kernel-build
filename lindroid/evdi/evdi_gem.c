@@ -211,6 +211,22 @@ int evdi_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (ret)
 		return ret;
 
+	/*
+	 * The kernel does not invoke vm_ops->open() for the initial mmap VMA
+	 * (only on later VMA copy/split), so evdi_gem_vm_open()'s page pin is
+	 * skipped for a plain CPU mmap - e.g. a dumb buffer that a software
+	 * renderer (kwin's QPainter backend) writes into. Without backing pages
+	 * the first pixel write faults into evdi_gem_fault() with obj->pages ==
+	 * NULL and returns VM_FAULT_SIGBUS. Pin the pages here; the balancing
+	 * unpin is done by evdi_gem_vm_close() when the mapping is torn down.
+	 */
+	{
+		struct drm_gem_object *gobj = vma->vm_private_data;
+
+		if (gobj && !evdi_drm_gem_object_use_import_attach(gobj))
+			evdi_pin_pages(to_evdi_gem(gobj));
+	}
+
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
 	vm_flags_mod(vma, VM_MIXEDMAP | VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY,
 		     VM_PFNMAP);
